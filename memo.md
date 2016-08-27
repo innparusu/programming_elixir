@@ -552,7 +552,7 @@ iex(6)> :"Elixir.IO".puts 123
 :ok
 ```
 
-# 6.11 Erlang のライブラリにある関数の呼び出し
+## 6.11 Erlang のライブラリにある関数の呼び出し
 - Erlang の命名規則は Elixir とは異なり, 変数は大文字から始まり, アトムは単純な小文字
 - そのため Erlang の ``timer`` モジュールはそのまま, ``timer`` というアトムで呼ばれる
     - Elixir はこれを``:timer`` とかく, tc関数の呼び出しは ``:timer.tc`` とかく
@@ -564,7 +564,7 @@ The number is 5.7
 :ok
 ```
 
-# 6.12 ライブラリを見つける
+## 6.12 ライブラリを見つける
 - アプリで使うライブラリを探すのなら, まずは Elixir の既存のモジュールを探すと良い
 - 組み込みライブラリは Elixir のドキュメントに、その他は hex.pm や Github にある
 - もし望んでいるものがないならErlangの組み込みライブラリを探すか, Erlang ドキュメントをWeb で検索する
@@ -572,3 +572,51 @@ The number is 5.7
 ## 練習問題:ModulesAndFunctions-7
 - 環境変数を取り出す -> System.get_env
 - ファイル名の拡張子 -> Path.extname
+
+# 7章 リストと再帰
+- 問題を正しいやり方で扱うなら, 再帰はリストを処理するのに完璧なツール
+
+## 7.1 ヘッドとテイル
+- リストはからでなければヘッドとテイルによって構成される
+
+## 7.6 より複雑なリストのパターン
+- 連結演算子``|``はその左辺に複数の値を置くことが出来る
+
+``` elixir
+iex(4)> [1,2,3 | [4,5,6]]
+[1, 2, 3, 4, 5, 6]
+iex(5)>
+```
+
+- パターンでも同じことができる
+
+``` elixir
+# リスト内の値のペアをスワップする
+defmodule Swapper do
+  def swap([]), do: []
+  def swap([a,b | tail]), do: [b, a | swap(tail)]
+  def swap([_]), do: raise "Can't swap a list with an odd number of elements"
+end
+```
+
+- Elixir のパターンマッチは再帰的で, パターンの中で, パターンをマッチさせることが出来る
+
+``` elixir
+defmodule WeatherHistory do
+  def for_location([], _target_loc), do: []
+  def for_location([ head = [_, target_loc, _, _] | tail], target_loc) do # この行は head というパラメータにlistをマッチさせている
+    [ head | for_location(tail, target_loc) ]
+  end
+  def for_location([ _ | tail], target_loc), do: for_location(tail, target_loc)
+end
+```
+
+## 7.7 実践 List モジュール
+- List モジュールはリストを操作する関数のセットを提供する
+- List.flatten : 平滑化
+- List.foldl : 畳込み(左)
+- List.foldr : 畳込み(右)
+- List.replace_at : 中の要素を置き換える
+- List.keyfind:キーワードリストにアクセスする
+- List.keydelete:キーワードリストにアクセスする
+- List.keyreplace:キーワードリストにアクセスする
