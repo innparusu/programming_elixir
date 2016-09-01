@@ -620,3 +620,380 @@ end
 - List.keyfind:キーワードリストにアクセスする
 - List.keydelete:キーワードリストにアクセスする
 - List.keyreplace:キーワードリストにアクセスする
+
+# 8章 map, キーワードリスト, セット, 構造体
+
+## 8.1 mapとキーワードリスト, どちらを使うべきか
+- キーワードリストを使う
+    - 同じキーをもつものが2回以上現れる
+    - 順序を保証する
+- map
+    - 内容についてパターンマッチを行いたい
+    - 上記のキーワードリストの利点以外の場合
+
+## 8.2 キーワードリスト
+- キーワードリストは主に、関数に渡されるオプションの用途で使われる
+- アクセス演算子(``list[key]``), ``Keyword``, ``Enum``モジュールの全ての関数が利用可能
+
+``` elixir
+defmodule Canvas do
+
+  @defaults [ fg: "black", bg: "white", font: "Merriweather" ]
+
+  def draw_text(text, options \\ []) do
+    options = Keyword.merge(@defaults, options)
+    IO.puts "Drawing text #{inspect(text)}"
+    IO.puts "Foreground: #{options[:fg]}"
+    IO.puts "Background: #{Keyword.get(options, :bg)}"
+    IO.puts "Font: #{Keyword.get(options, :font)}"
+    IO.puts "Pattern: #{Keyword.get(options, :pattern, "solid")}"
+    IO.puts "Style: #{inspect Keyword.get_values(options, :style)}"
+  end
+end
+
+Canvas.draw_text("hello", fg: "red", style: "italic", style: "bold")
+```
+
+## 8.3 マップ
+- マップはどんなサイズでも良い性能を出すことが出来る
+
+``` elixir
+iex(1)> map = %{ name: "Dave", likes: "Programming", where: "Dalias" }
+%{likes: "Programming", name: "Dave", where: "Dalias"}
+iex(2)> map
+%{likes: "Programming", name: "Dave", where: "Dalias"}
+iex(3)> Map.keys map
+[:likes, :name, :where]
+iex(4)> Map.values map
+["Programming", "Dave", "Dalias"]
+iex(5)> map[:name]
+"Dave"
+iex(6)> map.name
+"Dave"
+iex(7)> map1 = Map.drop map, [:where, :likes]
+%{name: "Dave"}
+iex(8)> map2 = Map.put map, :also_likes, "Ruby"
+%{also_likes: "Ruby", likes: "Programming", name: "Dave", where: "Dalias"}
+iex(9)> Map.keys map2
+[:also_likes, :likes, :name, :where]
+iex(10)> Map.has_key? map1, :where
+false
+iex(11)> { value, updated_map } = Map.pop map2, :also_likes
+{"Ruby", %{likes: "Programming", name: "Dave", where: "Dalias"}}
+iex(12)> Map.equal? map, updated_map
+true
+```
+
+## 8.4 マップのパターンマッチ
+- マップに対する一番よくある問い合わせは 「これらのキー(値)を持っているか?」
+
+``` elixir
+iex(13)> person = %{ name: "Dave", height: 1.88 }
+%{height: 1.88, name: "Dave"}
+
+# :name をキーとしたエントリがあるか?
+iex(14)> %{ name: a_name } = person
+%{height: 1.88, name: "Dave"}
+iex(15)> a_name
+"Dave"
+
+# :name, :height をキーとするエントリがあるか?
+iex(16)> %{ name: _, height: _ } = person
+%{height: 1.88, name: "Dave"}
+
+# :name は "Dave"か?
+iex(17)> %{ name: "Dave" } = person
+%{height: 1.88, name: "Dave"}
+
+# :weight はないので, 次のパターンマッチは失敗
+iex(18)> %{ name: _, weight: _ } = person
+** (MatchError) no match of right hand side value: %{height: 1.88, name: "Dave"}
+```
+
+- マップの構造を分解し, あるキーに関連付けられた値を取り出すやり方はいろいろな用途に使える
+- for を使ってコレクションの各要素を繰り返すことが出来る(詳しくは内包表現でやる(p103)
+- 下のコードではマップのリストから, それぞれのマップを取り出し, person に束縛し, 変数 height にマップの高さを束縛している
+
+``` elixir
+people = [
+  %{ name: "Grumpy",     height: 1.24 },
+  %{ name: "Dave",       height: 1.88 },
+  %{ name: "Dopey",      height: 1.32 },
+  %{ name: "Shaquille",  height: 2.16 },
+  %{ name: "Sheezy",     height: 1.28 },
+]
+
+IO.inspect(for person = %{ height: height } <- people, height > 1.5, do: person)
+```
+
+- パターンマッチはただのパターンマッチなので、マップのこの機能は cond式, 関数のヘッドのマッチ, そしてパターンマッチが使われるどんな状況でも同じように動作する
+
+``` elixir
+defmodule HotelRoom do
+
+  def book(%{name: name, height: height})
+  when height > 1.9 do
+    IO.puts "Need extra long bed for #{name}"
+  end
+
+  def book(%{name: name, height: height})
+  when height < 1.3 do
+    IO.puts "Need low shower controls for #{name}"
+  end
+
+  def book(person) do
+    IO.puts "Need regular bed for #{person.name}"
+  end
+
+end
+
+people = [
+  %{ name: "Grumpy",     height: 1.24 },
+  %{ name: "Dave",       height: 1.88 },
+  %{ name: "Dopey",      height: 1.32 },
+  %{ name: "Shaquille",  height: 2.16 },
+  %{ name: "Sheezy",     height: 1.28 },
+]
+people |> Enum.each(&HotelRoom.book/1)
+```
+
+### パターンマッチはキーを束縛できない
+- パターンマッチはキーに値を束縛することが出来ない
+
+``` elixir 
+iex(1)> %{ 2 => state } = %{ 1 => :ok, 2 => :error }
+%{1 => :ok, 2 => :error}
+iex(2)> state
+:error
+iex(3)> %{ item => :ok } = %{ 1 => :ok, 2 => :error }
+** (CompileError) iex:3: illegal use of variable item inside map key match, maps can only match on existing variable by using ^item
+    (stdlib) lists.erl:1354: :lists.mapfoldl/3
+```
+
+### 変数キーにマッチするパターンマッチ
+- ピン演算子はマップのキーでも使用できる
+
+``` elixir
+iex(3)> for key <- [ :name, :likes ] do
+...(3)>  %{ ^key => value } = data
+...(3)>  value
+...(3)> end
+["Dave", "Elixir"]
+```
+
+## 8.5 マップの更新
+- マップを更新する最も簡単な方法は ``new_map = %{ old_map | key => value, ...}``
+    - パイプ文字の右にあるキーに関連付けられた値は更新される
+
+``` elixir
+iex(5)> m = %{ a: 1, b: 2, c: 3}
+%{a: 1, b: 2, c: 3}
+iex(6)> m1 = %{ m | b: "two", c: "three"}
+%{a: 1, b: "two", c: "three"}
+iex(7)> m1 = %{ m1 | a: "one" }
+%{a: "one", b: "two", c: "three"}
+```
+
+- 上記の方法では新しいキーはマップに追加されない, ``Map.put_new/3`` を使う
+    - ``Map.put/3`` との違いとして, 既にキーがある場合 ``Map.put_new/3``は更新されない
+
+## 8.6 構造体
+- 構造体は制限された形式のマップをラップしたモジュール
+    - キーはアトムである必要があり, Map 機能の一部を持っていないという制限
+- モジュールの名前が構造体の型の名前になる
+    - モジュールの中で構造体を定義するには ``defstruct`` マクロを使う
+
+``` elixir
+defmodule Subscriber do
+  defstruct name: "", paid: false, over_18: true
+end
+```
+
+- 構造体を作るための構文はマップを作る構文と同じ
+- 構造体のフィールドにアクセスするにはドット記法か、パターンマッチを使う
+- 更新方法もマップと同じ
+
+``` elixir
+iex(1)> s1 = %Subscriber{}
+%Subscriber{name: "", over_18: true, paid: false}
+iex(2)> %Subscriber{ name: "Dave" }
+%Subscriber{name: "Dave", over_18: true, paid: false}
+iex(3)> s2 = %Subscriber{ name: "Dave" }
+%Subscriber{name: "Dave", over_18: true, paid: false}
+iex(4)> s3 = %Subscriber{ name: "Mary", paid: true }
+%Subscriber{name: "Mary", over_18: true, paid: true}
+iex(5)> s3.name
+"Mary"
+iex(6)> %Subscriber{name: a_name} = s3
+%Subscriber{name: "Mary", over_18: true, paid: true}
+iex(7)> a_name
+"Mary"
+iex(8)> s4 = %Subscriber{ s3 | name: "Marie" }
+%Subscriber{name: "Marie", over_18: true, paid: true}
+```
+
+- 構造体独自の挙動を追加したくなるため, 構造体はモジュールにラップされている
+
+``` elixir
+defmodule Attendee do
+  defstruct name: "", paid: false, over_18: true
+
+  def may_attend_affter_party(attendee = %Attendee{}) do
+    attendee.paid && attendee.over_18
+  end
+
+  def print_vip_badge(%Attendee{name: name}) when name != "" do
+    IO.puts "Very cheap badge for #{name}"
+  end
+
+  def print_vip_badge(%Attendee{}) do
+    raise "missing naem for badge"
+  end
+end
+```
+
+``` elixir
+iex(4)> a1 = %Attendee{ name: "Dave", over_18: true }
+%Attendee{name: "Dave", over_18: true, paid: false}
+iex(5)> Attendee.may_attend_affter_party(a1
+...(5)> )
+false
+iex(6)> a2 = %Attendee{a1 | paid: true}
+%Attendee{name: "Dave", over_18: true, paid: true}
+iex(7)> Attendee.may_attend_affter_party(a2)
+true
+iex(8)> Attendee.print_vip_badge(a2)
+Very cheap badge for Dave
+:ok
+iex(9)> a3 = %Attendee{}
+%Attendee{name: "", over_18: true, paid: false}
+iex(10)> Attendee.print_vip_badge(a3)
+** (RuntimeError) missing naem for badge
+    maps/defstruct1.exs:13: Attendee.print_vip_badge/1
+```
+
+- 構造体はポリモーフィズムを実装する際にも重要な役割を果たす
+
+## 8.7 入れ子になった辞書構造体
+- 通常ドット記法で入れ子のフィールドにアクセスできる
+- しかしデータを更新する際には読みにくくなる(入れ子になった辞書の外も更新しなければならない)
+
+```elixir
+iex(1)> report = %BugReport{ owner: %Customer{name: "Dave", company: "Pragmatic"}, details: "broken"}
+%BugReport{details: "broken",
+ owner: %Customer{company: "Pragmatic", name: "Dave"}, severity: 1}
+iex(2)> report.owner.company
+"Pragmatic"
+iex(3)> report = %BugReport{ report | owner: %Customer{ report.owner | company: "PragProg"}}
+%BugReport{details: "broken",
+ owner: %Customer{company: "PragProg", name: "Dave"}, severity: 1}
+```
+
+- ``put_in``というマクロを使うと入れ子構造の中に値をセットすることが出来る
+
+``` elixir
+iex(4)> put_in(report.owner.company, "PragProg")
+%BugReport{details: "broken",
+ owner: %Customer{company: "PragProg", name: "Dave"}, severity: 1}
+```
+
+- ``update_in`` 関数は構造体の中の値に関数を適用してくれる
+
+``` elixir
+iex(5)> update_in(report.owner.name, &("Mr. " <> & 1))
+%BugReport{details: "broken",
+ owner: %Customer{company: "PragProg", name: "Mr. Dave"}, severity: 1}
+```
+
+- 他にも ``get_in``, ``get_and_update_in`` という２つの関数がある
+
+### 入れ子accessorと非構造体
+- マップやキーワードリストで入れ子アクセサを使うときはキーをアトムで書くことが出来る
+
+``` elixir
+iex(6)> report = %{ owner: %{ name: "Dave", company: "Pragmatic" }, severity: 1}
+%{owner: %{company: "Pragmatic", name: "Dave"}, severity: 1}
+iex(7)> put_in(report[:owner][:company], "PragProg")
+%{owner: %{company: "PragProg", name: "Dave"}, severity: 1}
+iex(8)> update_in(report[:owner][:name], &("Mr. " <> &1))
+%{owner: %{company: "Pragmatic", name: "Mr. Dave"}, severity: 1}
+iex(9)> "hoge"<>"huga"
+```
+
+### 動的な(ランタイムの) 入れ子accessor
+- ここまで見てきた入れ子accessorは結局のところマクロ
+    - コンパイル時に作用するもの
+- そのためいくつかの制限がある
+    - 個々に呼び出しに渡すキーの数は変更しない
+    - 関数間でキーの集合をパラメータとして渡すことが出来ない
+- この制限を乗り越えるために``get_in``, ``put_in``, ``update_in``, ``get_and_update_in`` はキーのリストを独立したパラメータとして取ることが出来る そうすることでマクロから関数呼び出しに代わり, 動的になる
+
+``` elixir
+nested = %{
+  buttercup: %{
+    actor: %{
+      first: "Robin",
+      last: "Wright"
+    },
+    role: "princess"
+  },
+  westley: %{
+    actor: %{
+      first: "Carey",
+      last: "Ewes" #typo!
+    },
+    role: "farm boy"
+  }
+}
+
+IO.inspect get_in(nested, [:buttercup])
+#=> %{actor: %{first: "Robin", last: "Wright"}, role: "princess"}
+
+IO.inspect get_in(nested, [:buttercup, :actor])
+#=> %{first: "Robin", last: "Wright"}
+
+IO.inspect put_in(nested, [:westley, :actor, :last], "Elwes")
+#=> %{buttercup: %{actor: %{first: "Robin", last: "Wright"}, role: "princess"},
+#=>  westley: %{actor: %{first: "Carey", last: "Elwes"}, role: "farm boy"}}
+```
+
+- ``get_in`` と ``get_and_update_in`` の動的バージョンがサポートするトリックがある
+    - 関数をキーとして渡すと関数が起動されて、対応する値を返す
+
+``` elixir
+authors = [
+  %{ name: "Jose", language: "Elixir"},
+  %{ name: "Matz", language: "Ruby"},
+  %{ name: "Larry", language: "Perf"}
+]
+
+language_with_an_r = fn (:get, collection, next_fn) ->
+  for row <- collection do
+    if String.contains?(row.language, "r") do
+      next_fn.(row)
+    end
+  end
+end
+
+IO.inspect get_in(authors, [language_with_an_r, :name])
+```
+
+## 8.8 セット
+- 今のところ, セットの実装は ``MapSet`` 1つ
+
+``` elixir
+iex(16)> set1 = Enum.into 1..5, MapSet. new
+#MapSet<[1, 2, 3, 4, 5]>
+iex(17)> MapSet.member? set1, 3
+true
+iex(18)> set2 = Enum.into 3..8, MapSet.new
+#MapSet<[3, 4, 5, 6, 7, 8]>
+iex(19)> MapSet.union set1, set2
+#MapSet<[1, 2, 3, 4, 5, 6, 7, 8]>
+iex(20)> MapSet.difference set1, set2
+#MapSet<[1, 2]>
+iex(21)> MapSet.difference set2, set1
+#MapSet<[6, 7, 8]>
+iex(22)> MapSet.intersection set1, set2
+#MapSet<[3, 4, 5]>
+```
