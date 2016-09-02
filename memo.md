@@ -997,3 +997,36 @@ iex(21)> MapSet.difference set2, set1
 iex(22)> MapSet.intersection set1, set2
 #MapSet<[3, 4, 5]>
 ```
+
+# 9章 寄り道:型とは何か？
+- Elixir のプリミティブデータ型はそれが表現出来る方と同じである必要はない
+    - Elixir のプリミティブなリストは単に値が順に並んでいるグループにすぎない ``[..]``リテラルを使ってリストを作る事ができ, ``|``演算子でリストの分解と構築ができる
+- もう一つのレイヤーとして Elixir には List モジュールがある, これはリストを操作する関数を提供している
+- リストプリミティブとListモジュールの提供する機能性は違うもの
+    - リストプリミティブは実装
+    - List モジュールは抽象化のレイヤーを追加する
+- 上記のものはどちらも型を実装しているが違う種類のもの
+    - リストプリミティブは flatten 関数を持っていない
+- マップもプリミティブ型
+- ``keyword``型は タプルのリストで実装されているElixir のモジュール
+
+``` elixir
+options = [ {:width, 72}, {:style, "light"}, {:style, "print"} ]
+```
+
+- これはリストのためリストのための関数は動作する. さらに Elixir は辞書らしい挙動をするための機能も追加している
+
+``` elixir
+iex(1)> options = [ {:width, 72}, {:style, "light"}, {:style, "print"} ]
+[width: 72, style: "light", style: "print"]
+iex(2)> List.last options
+{:style, "print"}
+iex(3)> Keyword.get_values options, :style
+["light", "print"]
+```
+
+- 見方によってはダックタイミングの形
+- Keyword モジュールは土台となる Keyword プリミティブデータ型を持っていない. このモジュールで扱う値はどれもある方法で構造化されたリストということを単純に仮定しているだけ
+- つまり, Elixir のコレクション API はかなり幅広い
+
+# 10章 コレクションの処理 Eunm と Stream
